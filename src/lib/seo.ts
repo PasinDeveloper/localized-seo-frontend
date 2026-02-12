@@ -100,6 +100,24 @@ async function fetchJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function fetchJsonNoStore<T>(path: string): Promise<T> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    headers: {
+      Accept: "application/json",
+      ...(process.env.INTERNAL_API_KEY
+        ? { "x-internal-api-key": process.env.INTERNAL_API_KEY }
+        : {}),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
 export const getRecipesForSeo = cache(
   async (locale?: Locale): Promise<Recipe[]> => {
     const params = locale ? `?locale=${encodeURIComponent(locale)}` : "";
@@ -110,6 +128,14 @@ export const getRecipesForSeo = cache(
     }
   },
 );
+
+export async function getRecipesForSitemap(): Promise<Recipe[]> {
+  try {
+    return await fetchJsonNoStore<Recipe[]>("/recipes");
+  } catch {
+    return [];
+  }
+}
 
 export async function getRecipeForSeo(
   slug: string,

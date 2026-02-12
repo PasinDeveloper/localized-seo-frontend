@@ -2,7 +2,7 @@ import { MetadataRoute } from "next";
 import { Locale, SUPPORTED_LOCALES } from "@/lib/i18n";
 import {
   getAbsoluteUrl,
-  getRecipesForSeo,
+  getRecipesForSitemap,
   localizeRecipeSlug,
 } from "@/lib/seo";
 
@@ -27,7 +27,7 @@ function toRecipeGroupKey(slug: string): string {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const recipes = await getRecipesForSeo();
+  const recipes = await getRecipesForSitemap();
   const groupedRecipes = new Map<string, Partial<Record<Locale, string>>>();
 
   for (const recipe of recipes) {
