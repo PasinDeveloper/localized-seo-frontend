@@ -45,7 +45,10 @@ export function RecipeBlog({ locale }: RecipeBlogProps) {
           seeded: result.seeded,
         }),
       );
-      await queryClient.invalidateQueries({ queryKey: ["recipes", locale] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["recipes"] }),
+        queryClient.invalidateQueries({ queryKey: ["recipe"] }),
+      ]);
     },
     onError: (seedError: Error) => {
       setSeedMessage(
@@ -129,7 +132,7 @@ export function RecipeBlog({ locale }: RecipeBlogProps) {
           <div className="flex justify-end">
             <LanguageSwitcher currentLocale={locale} />
           </div>
-          <SitemapPreview locale={locale} />
+          <SitemapPreview />
         </div>
       </header>
 

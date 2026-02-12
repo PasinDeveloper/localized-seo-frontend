@@ -3,15 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { Locale } from "@/lib/i18n";
 import { useApiMutation } from "@/lib/useApiMutation";
 import { useApiQuery } from "@/lib/useApiQuery";
 import { MAX_SEED_AMOUNT, triggerSeedRecipes } from "@/lib/recipesApi";
 import { revalidate } from "@/app/sitemap";
-
-interface SitemapPreviewProps {
-  locale: Locale;
-}
 
 const MIN_REVALIDATE_SECONDS = 5;
 const MAX_REVALIDATE_SECONDS = 300;
@@ -26,7 +21,7 @@ async function fetchSitemapXml(): Promise<string> {
   return response.text();
 }
 
-export function SitemapPreview({ locale }: SitemapPreviewProps) {
+export function SitemapPreview() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
@@ -72,12 +67,7 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
     }, 1000);
 
     return () => window.clearTimeout(timerId);
-  }, [
-    countdown,
-    isSitemapFetching,
-    revalidateSeconds,
-    refetchSitemap,
-  ]);
+  }, [countdown, isSitemapFetching, revalidateSeconds, refetchSitemap]);
 
   const seedMutation = useApiMutation(triggerSeedRecipes, {
     onSuccess: async (result) => {
@@ -87,7 +77,10 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
           seeded: result.seeded,
         }),
       );
-      await queryClient.invalidateQueries({ queryKey: ["recipes", locale] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["recipes"] }),
+        queryClient.invalidateQueries({ queryKey: ["recipe"] }),
+      ]);
       // Keep sitemap refresh timer-driven to demonstrate revalidation delay.
       setCountdown(revalidateSeconds);
     },
