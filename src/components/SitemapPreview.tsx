@@ -39,6 +39,7 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
   const [dialogSeedMessage, setDialogSeedMessage] = useState<string | null>(
     null,
   );
+  const [lastSeededAt, setLastSeededAt] = useState<number | null>(null);
 
   const {
     data: sitemapXml,
@@ -72,6 +73,35 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
     return () => window.clearTimeout(timerId);
   }, [countdown, isSitemapFetching, revalidateSeconds, refetchSitemap]);
 
+  useEffect(() => {
+    if (lastSeededAt == null) return;
+
+    const previous = sitemapXml;
+    let canceled = false;
+
+    const maxAttempts = Math.min(8, Math.max(1, Math.ceil(revalidateSeconds)));
+    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+    (async () => {
+      for (let i = 0; i < maxAttempts && !canceled; i++) {
+        try {
+          const result = await refetchSitemap();
+          if (result.data && result.data !== previous) {
+            break;
+          }
+        } catch {
+          // ignore transient errors and continue polling
+        }
+
+        await sleep(1000);
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [lastSeededAt, revalidateSeconds, refetchSitemap, sitemapXml]);
+
   const seedMutation = useApiMutation(triggerSeedRecipes, {
     onSuccess: async (result) => {
       setDialogSeedMessage(
@@ -81,7 +111,12 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
         }),
       );
       await queryClient.invalidateQueries({ queryKey: ["recipes", locale] });
-      // Keep sitemap refresh timer-driven to demonstrate revalidation delay.
+
+      // Mark the time of the last successful seed so a hook can poll for
+      // sitemap changes. Using `useEffect` keeps async polling tied to React
+      // lifecycle and satisfies linting rules.
+      setLastSeededAt(Date.now());
+
       setCountdown(revalidateSeconds);
     },
     onError: (seedError: Error) => {
