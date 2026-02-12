@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Locale } from "@/lib/i18n";
@@ -16,6 +16,7 @@ interface SitemapPreviewProps {
 const MIN_REVALIDATE_SECONDS = 5;
 const MAX_REVALIDATE_SECONDS = 300;
 const DEFAULT_REVALIDATE_SECONDS = revalidate;
+const FOLLOW_UP_REFRESH_DELAY_MS = 1200;
 
 async function fetchSitemapXml(): Promise<string> {
   const response = await fetch("/sitemap.xml", { cache: "no-store" });
@@ -39,7 +40,7 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
   const [dialogSeedMessage, setDialogSeedMessage] = useState<string | null>(
     null,
   );
-  const [lastSeededAt, setLastSeededAt] = useState<number | null>(null);
+  const followUpRefreshTimeoutRef = useRef<number | null>(null);
 
   const {
     data: sitemapXml,
@@ -50,6 +51,19 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
   } = useApiQuery(["sitemap-preview"], fetchSitemapXml, {
     staleTime: 0,
   });
+
+  const refreshSitemapAfterRevalidate = useCallback(async () => {
+    await refetchSitemap();
+
+    if (followUpRefreshTimeoutRef.current !== null) {
+      window.clearTimeout(followUpRefreshTimeoutRef.current);
+    }
+
+    followUpRefreshTimeoutRef.current = window.setTimeout(() => {
+      void refetchSitemap();
+      followUpRefreshTimeoutRef.current = null;
+    }, FOLLOW_UP_REFRESH_DELAY_MS);
+  }, [refetchSitemap]);
 
   useEffect(() => {
     setCountdown(revalidateSeconds);
@@ -63,7 +77,7 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
 
       if (countdown <= 1) {
         setCountdown(revalidateSeconds);
-        void refetchSitemap();
+        void refreshSitemapAfterRevalidate();
         return;
       }
 
@@ -71,36 +85,21 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
     }, 1000);
 
     return () => window.clearTimeout(timerId);
-  }, [countdown, isSitemapFetching, revalidateSeconds, refetchSitemap]);
+  }, [
+    countdown,
+    isSitemapFetching,
+    revalidateSeconds,
+    refreshSitemapAfterRevalidate,
+  ]);
 
-  useEffect(() => {
-    if (lastSeededAt == null) return;
-
-    const previous = sitemapXml;
-    let canceled = false;
-
-    const maxAttempts = Math.min(8, Math.max(1, Math.ceil(revalidateSeconds)));
-    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-    (async () => {
-      for (let i = 0; i < maxAttempts && !canceled; i++) {
-        try {
-          const result = await refetchSitemap();
-          if (result.data && result.data !== previous) {
-            break;
-          }
-        } catch {
-          // ignore transient errors and continue polling
-        }
-
-        await sleep(1000);
+  useEffect(
+    () => () => {
+      if (followUpRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(followUpRefreshTimeoutRef.current);
       }
-    })();
-
-    return () => {
-      canceled = true;
-    };
-  }, [lastSeededAt, revalidateSeconds, refetchSitemap, sitemapXml]);
+    },
+    [],
+  );
 
   const seedMutation = useApiMutation(triggerSeedRecipes, {
     onSuccess: async (result) => {
@@ -111,12 +110,7 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
         }),
       );
       await queryClient.invalidateQueries({ queryKey: ["recipes", locale] });
-
-      // Mark the time of the last successful seed so a hook can poll for
-      // sitemap changes. Using `useEffect` keeps async polling tied to React
-      // lifecycle and satisfies linting rules.
-      setLastSeededAt(Date.now());
-
+      // Keep sitemap refresh timer-driven to demonstrate revalidation delay.
       setCountdown(revalidateSeconds);
     },
     onError: (seedError: Error) => {
