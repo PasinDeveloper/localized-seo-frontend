@@ -15,7 +15,7 @@ import {
   - Revalidate frequently so DB updates are reflected in sitemap.xml.
 */
 
-export const revalidate = 60 * 60; // Revalidate every hour to keep sitemap fresh with DB changes.
+export const revalidate = 3600; // Revalidate every hour to keep sitemap fresh with DB changes.
 
 function recipePath(locale: Locale, slug: string): string {
   return `/${locale}/recipes/${localizeRecipeSlug(slug, locale)}`;
