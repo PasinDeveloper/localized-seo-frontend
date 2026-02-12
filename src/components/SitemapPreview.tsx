@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Locale } from "@/lib/i18n";
@@ -16,7 +16,6 @@ interface SitemapPreviewProps {
 const MIN_REVALIDATE_SECONDS = 5;
 const MAX_REVALIDATE_SECONDS = 300;
 const DEFAULT_REVALIDATE_SECONDS = revalidate;
-const FOLLOW_UP_REFRESH_DELAY_MS = 1200;
 
 async function fetchSitemapXml(): Promise<string> {
   const response = await fetch("/sitemap.xml", { cache: "no-store" });
@@ -40,7 +39,6 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
   const [dialogSeedMessage, setDialogSeedMessage] = useState<string | null>(
     null,
   );
-  const followUpRefreshTimeoutRef = useRef<number | null>(null);
 
   const {
     data: sitemapXml,
@@ -50,20 +48,9 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
     refetch: refetchSitemap,
   } = useApiQuery(["sitemap-preview"], fetchSitemapXml, {
     staleTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
-
-  const refreshSitemapAfterRevalidate = useCallback(async () => {
-    await refetchSitemap();
-
-    if (followUpRefreshTimeoutRef.current !== null) {
-      window.clearTimeout(followUpRefreshTimeoutRef.current);
-    }
-
-    followUpRefreshTimeoutRef.current = window.setTimeout(() => {
-      void refetchSitemap();
-      followUpRefreshTimeoutRef.current = null;
-    }, FOLLOW_UP_REFRESH_DELAY_MS);
-  }, [refetchSitemap]);
 
   useEffect(() => {
     setCountdown(revalidateSeconds);
@@ -77,7 +64,7 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
 
       if (countdown <= 1) {
         setCountdown(revalidateSeconds);
-        void refreshSitemapAfterRevalidate();
+        void refetchSitemap();
         return;
       }
 
@@ -89,17 +76,8 @@ export function SitemapPreview({ locale }: SitemapPreviewProps) {
     countdown,
     isSitemapFetching,
     revalidateSeconds,
-    refreshSitemapAfterRevalidate,
+    refetchSitemap,
   ]);
-
-  useEffect(
-    () => () => {
-      if (followUpRefreshTimeoutRef.current !== null) {
-        window.clearTimeout(followUpRefreshTimeoutRef.current);
-      }
-    },
-    [],
-  );
 
   const seedMutation = useApiMutation(triggerSeedRecipes, {
     onSuccess: async (result) => {
