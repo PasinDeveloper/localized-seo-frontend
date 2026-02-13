@@ -2,6 +2,18 @@
 
 Next.js App Router frontend for localized recipe pages (`en`, `fr`) with API-driven content and SEO metadata.
 
+## 📖 Full Tutorial & Practical Guide
+This repository is the official example project for the detailed guide: 
+**[Next.js 15: Localized SEO Practical Guide](https://medium.com/nolooptech/next-js-15-localized-seo-practical-guide-9a4b5b441f65)**.
+
+In this article, we go deep into:
+- **Architecting `app/[lang]` routing** for maximum crawlability.
+- **Automating Hreflang & Canonical tags** using the Next.js 15 Metadata API.
+- **Building Localized Sitemaps** that search engines actually trust.
+- **Avoiding the "Client-Side Shift" trap** that kills international rankings.
+
+> **Note:** To see the full implementation, including the localized data layer, check out the [Backend Reference Repository](https://github.com/PasinDeveloper/localized-seo-backend).
+
 ## Requirements
 
 - Node.js 18+
