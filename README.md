@@ -31,7 +31,7 @@ Run each service from its own repository:
 
 ```bash
 # in backend repo
-yarn dev
+yarn start:dev
 
 # in frontend repo
 yarn dev
